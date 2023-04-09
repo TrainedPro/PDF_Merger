@@ -6,8 +6,8 @@
 import os
 import PyPDF2
 import re
+import subprocess
 
-choice = input("Would You Like To Source Delete Files After Merging? (y/n): ").lower() == 'y'
 
 # Get the directory where the script is located
 script_dir = os.path.dirname(os.path.abspath(__file__))
@@ -16,49 +16,78 @@ script_dir = os.path.dirname(os.path.abspath(__file__))
 os.chdir(script_dir)
 
 # Get all the PDF filenames
-pdfFiles = [file for file in os.listdir('.') if file.endswith('.pdf') and not re.match(r'^(\d+)_(.+?)_Merged.pdf$', file)]
+mainFiles = [file for file in os.listdir('.') if (file.endswith("pptx") or file.endswith("ppt") or file.endswith("docx") or file.endswith("doc")) and not re.match(fr'^(\d+)_(.+?)_Merged.pdf$', file)]
 
 # Sort based on modification date
-pdfFiles.sort(key = lambda t: os.stat(t).st_mtime)
+mainFiles.sort(key = lambda t: os.stat(t).st_mtime)    
 
-print(pdfFiles)
+print(mainFiles)
 
-prev = 0
+completed = 0
 subject_name = os.getcwd().split('/')[-2]
 
+# checks if previously merged file exists
 for file in os.listdir('.'):
-    # Check if the filename matches the regex pattern
-    match = re.match(r'^(\d+)_(.+?)_Merged.pdf$', file)
+    match = re.match(fr'^(\d+)_(.+?)_Merged.pdf$', file)
     if match:
-        prev = int(match.group(1))
-        if prev > len(pdfFiles):
-            prev = 0
+        completed = int(match.group(1))
+        if completed > len(mainFiles):
+            completed = 0
             os.remove(match.string)
         subject_name = match.group(2)
         break
-print(f"prev = {prev}")
+print(f"Completed = {completed}")
 
+# converts files to PDF and returns converted file list
+convertedFiles = []
+if len(mainFiles) > completed:
+    for file in mainFiles[completed::]:
+        # Get the file extension and base filename
+        filename = os.path.splitext(file)[0]
+
+        # Get the output PDF filename
+        pdfFileName = filename + ".pdf"
+
+        print(f"    Starting {pdfFileName}")
+
+        # Convert the file to a PDF
+        try:
+            subprocess.call(['libreoffice', '--headless', '--convert-to', 'pdf', file])
+        except subprocess.CalledProcessError:
+            print(f"Unable to convert {pdfFileName}. Skipping...")    
+
+        os.rename(pdfFileName, os.path.join(os.getcwd(), pdfFileName))
+        convertedFiles.append(pdfFileName)
+        print(f"    Completed {pdfFileName}!")
+
+# lists all pdf files and sorts it
+pdfFiles = [file for file in os.listdir(".") if file.endswith("pdf") and not re.match(fr'^(\d+)_(.+?)_Merged.pdf$', file)]
+pdfFiles.sort(key = lambda t: os.stat(t).st_mtime)
+print(f"PDF Files Are: {pdfFiles}")
 
 merger = PyPDF2.PdfWriter()
 
-if prev > 0:
+# appends already created merged file
+if completed > 0:
     merger.append(match.string)
     print(f"Merging Prevous {match.string}")
     os.remove(match.string)
 
-
-# Append files
-for file in pdfFiles[prev::]:
+# appends new files
+for file in convertedFiles:
     merger.append(file)
     print(f"Merging {file}")
-    prev += 1
+    completed += 1
 
-# Name the merged document
-merger.write(f"{prev}_{subject_name}_Merged.pdf")
-merger.close()
+# if merger is not empty
+if merger:
+    print(f"Writing Final PDF: {completed}_{subject_name}_Merged.pdf")
+    # Name the merged document
+    merger.write(f"{completed}_{subject_name}_Merged.pdf")
+    merger.close()
 
+print(f"Converted Files Are: {convertedFiles}")
 
-# Delete files
-if choice:
-    for file in pdfFiles:
-        os.remove(file)
+# Delete ONLY those pdf files that were created with the script
+for file in convertedFiles:
+    os.remove(file)
