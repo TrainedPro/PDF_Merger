@@ -30,7 +30,7 @@ subject_name = os.getcwd().split('/')[-2]
 for file in os.listdir('.'):
     match = re.match(fr'^(\d+)_(.+?)_Merged.pdf$', file)
     if match:
-        completed = int(match.group(1))
+        completed = int(match.group(1)) - 1
         if completed > len(mainFiles):
             completed = 0
             os.remove(match.string)
@@ -74,16 +74,16 @@ if completed > 0:
     os.remove(match.string)
 
 # appends new files
-for file in convertedFiles:
+for file in pdfFiles:
     merger.append(file)
     print(f"Merging {file}")
     completed += 1
 
 # if merger is not empty
 if merger:
-    print(f"Writing Final PDF: {completed}_{subject_name}_Merged.pdf")
+    print(f"Writing Final PDF: {completed + 1}_{subject_name}_Merged.pdf")
     # Name the merged document
-    merger.write(f"{completed}_{subject_name}_Merged.pdf")
+    merger.write(f"{completed + 1}_{subject_name}_Merged.pdf")
     merger.close()
 
 print(f"Converted Files Are: {convertedFiles}")
